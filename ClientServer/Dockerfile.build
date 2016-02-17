@@ -1,0 +1,44 @@
+FROM ubuntu:14.04
+
+# Set the root password to something I know
+RUN echo "root:rootpassword" | chpasswd
+
+# Install dependencies
+RUN apt-get update -y \
+    && apt-get install -y libboost1.55-all-dev libssl-dev git cmake g++ wget
+# Install docker. Note this will require running the container with 
+# "-v /var/run/docker.sock:/var/run/docker.sock" to be useful.
+RUN apt-get install -y docker.io
+
+# Personal preference, but I much prefer someone checking I'm not accidentally
+# overwriting files. This can always be overruled with a "-f" anyway.
+RUN echo -e "alias cp='cp -i'\nalias mv='mv -i'\nalias rm='rm -i'" >> /etc/skel/.bash_aliases
+
+# Need a more recent version of Emscripten than Ubuntu 14.04 provides,
+# so install the portable sdk. These are the packages listed as required
+# on the Emscripten install page
+# https://kripken.github.io/emscripten-site/docs/getting_started/downloads.html#linux
+# Note: Redoing "apt-get update" in case the previous invocation comes from the cache
+RUN apt-get update -y \
+    && apt-get install -y python2.7 nodejs default-jre
+RUN wget https://s3.amazonaws.com/mozilla-games/emscripten/releases/emsdk-portable.tar.gz \
+    && tar xzf emsdk-portable.tar.gz \
+    && rm emsdk-portable.tar.gz \
+    && cd emsdk_portable \
+    && ./emsdk update \
+    && ./emsdk install latest \
+    && ./emsdk activate latest
+# Make sure users have the tool available by sourcing the setup script when
+# they logon. This only affects users created after this "skel" file is changed.
+RUN echo -e "\n# Use the most up to date version of Emscripten\nsource $PWD/emsdk_env.sh" >> /etc/skel/.profile
+
+# Switch to a non-root user
+RUN useradd -ms /bin/bash --groups docker ubuntu
+RUN echo "ubuntu:ubuntu" | chpasswd
+# Allow the user to run docker commands
+RUN echo "ubuntu ALL=(ALL) NOPASSWD: /usr/bin/docker" > /etc/sudoers.d/ubuntu
+
+USER ubuntu
+WORKDIR /home/ubuntu
+
+CMD /bin/bash
