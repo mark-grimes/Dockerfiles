@@ -5,7 +5,7 @@ RUN echo "root:rootpassword" | chpasswd
 
 # Install dependencies
 RUN apt-get update -y \
-    && apt-get install -y libboost1.55-all-dev libssl-dev git cmake g++ wget
+    && apt-get install -y libboost1.55-all-dev libssl-dev git cmake g++ curl
 # Install docker. Note this will require running the container with 
 # "-v /var/run/docker.sock:/var/run/docker.sock" to be useful.
 RUN apt-get install -y docker.io
@@ -21,16 +21,46 @@ RUN echo -e "alias cp='cp -i'\nalias mv='mv -i'\nalias rm='rm -i'" >> /etc/skel/
 # Note: Redoing "apt-get update" in case the previous invocation comes from the cache
 RUN apt-get update -y \
     && apt-get install -y python2.7 nodejs default-jre
-RUN wget https://s3.amazonaws.com/mozilla-games/emscripten/releases/emsdk-portable.tar.gz \
-    && tar xzf emsdk-portable.tar.gz \
-    && rm emsdk-portable.tar.gz \
+RUN curl https://s3.amazonaws.com/mozilla-games/emscripten/releases/emsdk-portable.tar.gz | tar xz \
     && cd emsdk_portable \
     && ./emsdk update \
     && ./emsdk install latest \
     && ./emsdk activate latest
+RUN cd /emsdk_portable \
+    && ./emsdk construct_env
+RUN cp /root/.emscripten /etc/skel
 # Make sure users have the tool available by sourcing the setup script when
 # they logon. This only affects users created after this "skel" file is changed.
-RUN echo -e "\n# Use the most up to date version of Emscripten\nsource $PWD/emsdk_env.sh" >> /etc/skel/.profile
+# Not using the "emsdk construct_env" method because that insists on using intermediate
+# files written to /emsdk_portable.
+RUN echo "\n" \
+    "# Use the most up to date version of Emscripten\n" \
+    "export PATH=\"/emsdk_portable:/emsdk_portable/clang/fastcomp/build_master_64/bin:/emsdk_portable/node/4.1.1_64bit/bin:/emsdk_portable/emscripten/master:\$PATH\"\n" \
+    "export EM_CONFIG=\"\$HOME/.emscripten\"\n" \
+    "export EMSCRIPTEN=\"/emsdk_portable/emscripten/master\"\n" >> /etc/skel/.bashrc
+
+# overwrite the .bash_alias file I made earlier (don't change above because it'll invalidate the
+# cache and the emsdk build takes aaaages). Just need to remove the "-e" which echo takes literally.
+# TODO - Fix above before committing and remove
+RUN echo "alias cp='cp -i'\nalias mv='mv -i'\nalias rm='rm -i'" > /etc/skel/.bash_aliases
+
+
+# Compile a version of google protobuf using Emscripten. I know of no binary
+# packages that have this, so compile from source.
+RUN apt-get install -y libtool pandora-build protobuf-compiler
+RUN mkdir /source \
+    && cd /source \
+    && git clone https://github.com/google/protobuf.git \
+    && cd protobuf \
+    && git checkout v2.5.0 \
+    && ./autogen.sh
+RUN cd /source/protobuf \
+    && ls 1>&2
+RUN cd /source/protobuf \
+    && . /emsdk_portable/emsdk_set_env.sh \
+    && emconfigure ./configure --with-protoc=protoc --prefix /protobuf-2.5.0-emscripten CPPFLAGS="-DGOOGLE_PROTOBUF_NO_THREAD_SAFETY" \
+    && emmake make \
+    && emmake make install
 
 # Switch to a non-root user
 RUN useradd -ms /bin/bash --groups docker ubuntu
