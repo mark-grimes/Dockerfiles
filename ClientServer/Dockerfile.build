@@ -5,60 +5,49 @@ RUN echo "root:rootpassword" | chpasswd
 
 # Install dependencies
 RUN apt-get update -y \
-    && apt-get install -y libboost1.55-all-dev libssl-dev git cmake g++ curl
+    && apt-get install -y cmake curl git g++ libboost1.55-all-dev libssl-dev
 # Install docker. Note this will require running the container with 
 # "-v /var/run/docker.sock:/var/run/docker.sock" to be useful.
 RUN apt-get install -y docker.io
 
 # Personal preference, but I much prefer someone checking I'm not accidentally
 # overwriting files. This can always be overruled with a "-f" anyway.
-RUN echo -e "alias cp='cp -i'\nalias mv='mv -i'\nalias rm='rm -i'" >> /etc/skel/.bash_aliases
+RUN echo "alias cp='cp -i'\nalias mv='mv -i'\nalias rm='rm -i'" >> /etc/skel/.bash_aliases
 
 # Need a more recent version of Emscripten than Ubuntu 14.04 provides,
 # so install the portable sdk. These are the packages listed as required
 # on the Emscripten install page
 # https://kripken.github.io/emscripten-site/docs/getting_started/downloads.html#linux
-# Note: Redoing "apt-get update" in case the previous invocation comes from the cache
-RUN apt-get update -y \
-    && apt-get install -y python2.7 nodejs default-jre
+RUN apt-get install -y default-jre python2.7 nodejs
 RUN curl https://s3.amazonaws.com/mozilla-games/emscripten/releases/emsdk-portable.tar.gz | tar xz \
     && cd emsdk_portable \
     && ./emsdk update \
     && ./emsdk install latest \
-    && ./emsdk activate latest
-RUN cd /emsdk_portable \
-    && ./emsdk construct_env
-RUN cp /root/.emscripten /etc/skel
-# Make sure users have the tool available by sourcing the setup script when
-# they logon. This only affects users created after this "skel" file is changed.
-# Not using the "emsdk construct_env" method because that insists on using intermediate
-# files written to /emsdk_portable.
+    && ./emsdk activate latest \
+    && ./emsdk construct_env \
+    && cp /root/.emscripten /etc/skel
+# Make sure users have the tool available when they login by manually adding the correct
+# environment variables to the skeleton .bashrc file. I'm not using the "emsdk construct_env"
+# method because that insists on writing to the root owned directory each time.
 RUN echo "\n" \
     "# Use the most up to date version of Emscripten\n" \
     "export PATH=\"/emsdk_portable:/emsdk_portable/clang/fastcomp/build_master_64/bin:/emsdk_portable/node/4.1.1_64bit/bin:/emsdk_portable/emscripten/master:\$PATH\"\n" \
     "export EM_CONFIG=\"\$HOME/.emscripten\"\n" \
     "export EMSCRIPTEN=\"/emsdk_portable/emscripten/master\"\n" >> /etc/skel/.bashrc
 
-# overwrite the .bash_alias file I made earlier (don't change above because it'll invalidate the
-# cache and the emsdk build takes aaaages). Just need to remove the "-e" which echo takes literally.
-# TODO - Fix above before committing and remove
-RUN echo "alias cp='cp -i'\nalias mv='mv -i'\nalias rm='rm -i'" > /etc/skel/.bash_aliases
-
-
-# Compile a version of google protobuf using Emscripten. I know of no binary
-# packages that have this, so compile from source.
+# We need  a version of google protobuf compiled using Emscripten. I know of no binary
+# packages that have this, so have to compile from source.
 RUN apt-get install -y libtool pandora-build protobuf-compiler
-RUN mkdir /source \
-    && cd /source \
+RUN mkdir /sourcecode \
+    && cd /sourcecode \
     && git clone https://github.com/google/protobuf.git \
     && cd protobuf \
     && git checkout v2.5.0 \
     && ./autogen.sh
-RUN cd /source/protobuf \
-    && ls 1>&2
-RUN cd /source/protobuf \
+# Use Emscripten to compile the library to LLVM bit code.
+RUN cd /sourcecode/protobuf \
     && . /emsdk_portable/emsdk_set_env.sh \
-    && emconfigure ./configure --with-protoc=protoc --prefix /protobuf-2.5.0-emscripten CPPFLAGS="-DGOOGLE_PROTOBUF_NO_THREAD_SAFETY" \
+    && emconfigure ./configure --with-protoc=protoc --prefix /usr/local/emscripten_bitcode CPPFLAGS="-DGOOGLE_PROTOBUF_NO_THREAD_SAFETY" \
     && emmake make \
     && emmake make install
 
@@ -70,5 +59,13 @@ RUN echo "ubuntu ALL=(ALL) NOPASSWD: /usr/bin/docker" > /etc/sudoers.d/ubuntu
 
 USER ubuntu
 WORKDIR /home/ubuntu
+
+#
+# The build environment should now have everything required, so I
+# can start downloading and building my code.
+#
+RUN git clone https://github.com/mark-grimes/ClientServer.git \
+    && mkdir ClientServer/release \
+    && cd ClientServer/release
 
 CMD /bin/bash
