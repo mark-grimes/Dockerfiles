@@ -1,7 +1,24 @@
 FROM markgrimes/cppwebdevelopment
 
+USER root
+RUN apt-get install -y libprotobuf-dev
+USER ubuntu
+
+RUN git clone https://github.com/chriskohlhoff/asio.git -b asio-1-10-6
+
+RUN git clone https://github.com/mark-grimes/Communique.git \
+    && mkdir Communique/release \
+    && cd Communique/release \
+    && cmake -DASIO_STANDALONE_PATH=$HOME/asio/asio -DCMAKE_BUILD_TYPE=RELEASE .. \
+    && make
+
 RUN git clone https://github.com/mark-grimes/ClientServer.git \
     && mkdir ClientServer/release \
-    && cd ClientServer/release
+    && cd ClientServer/release \
+    && cmake -DCommunique_DIR=$HOME/Communique/release \
+             -DEMSCRIPTEN_ROOT_PATH=/emsdk_portable/emscripten/master \
+             -DEMSCRIPTEN_PROTOBUF_ROOT_PATH=/usr/local/emscripten_bitcode \
+             -DCMAKE_BUILD_TYPE=DEBUG .. \
+    && make
 
 CMD /bin/bash
