@@ -1,0 +1,31 @@
+# Dockerfile for building a container with just lldb (http://lldb.llvm.org).
+# Useful for creating containers with custom versions of lldb, e.g. with bugfixes
+# that haven't made it into the main tree yet. The build context should be where
+# lldb is installed, e.g. /usr/local for the version installed on the host, or
+# the build directory if you've just built llvm yourself.
+#
+# The "COPY" command copies over specific versions of the lldb files because the
+# wildcard copy wasn't preserving symbolic links. Hence the LLVM_VERSION needs to
+# be modified for your installation.
+#
+# Once built, the intention is to use it to debug other containers with the
+# "--volumes-from" option. This could require mounting library folders to get the
+# target executable to run, so the llvm bin and lib folders are put in "/llvm" so
+# that they can live alongside lib folders from the target container.
+
+FROM ubuntu:14.04
+
+# Install dependencies
+RUN apt-get update -y && apt-get install -y python-pip libedit2 libpython2.7 libxml2
+
+ENV LLVM_VERSION 3.9.0
+
+COPY llvm_install/bin/lldb-${LLVM_VERSION} llvm_install/bin/lldb-argdumper llvm_install/bin/lldb-mi-${LLVM_VERSION} llvm_install/bin/lldb-server-${LLVM_VERSION} /llvm/bin/
+COPY llvm_install/lib/liblldb*.so* /llvm/lib/
+COPY llvm_install/lib/python2.7 /llvm/lib/python2.7
+
+# Don't know why, but COPY is not preserving symlinks so I'll add them manually
+RUN cd /llvm/bin && ln -s lldb-${LLVM_VERSION} lldb && ln -s lldb-mi-${LLVM_VERSION} lldb-mi && ln -s lldb-server-${LLVM_VERSION} lldb-server
+
+ENV PATH="/llvm/bin:$PATH"
+ENTRYPOINT ["lldb"]

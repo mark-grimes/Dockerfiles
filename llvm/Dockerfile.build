@@ -1,0 +1,65 @@
+FROM ubuntu:14.04
+
+# Set the root password to something I know
+RUN echo "root:rootpassword" | chpasswd
+
+# Install dependencies
+RUN apt-get update -y && apt-get install -y \
+        cmake \
+        clang \
+        git \
+        libncurses5-dev \
+        libedit-dev \
+        libtool \
+        pandora-build \
+        swig
+# Install docker. Note this will require running the container with 
+# "-v /var/run/docker.sock:/var/run/docker.sock" to be useful.
+RUN apt-get install -y docker.io
+
+# Personal preference, but I much prefer someone checking I'm not accidentally
+# overwriting files. This can always be overruled with a "-f" anyway.
+RUN echo "alias cp='cp -i'\nalias mv='mv -i'\nalias rm='rm -i'" >> /etc/skel/.bash_aliases
+
+# Switch to a non-root user
+RUN useradd -ms /bin/bash --groups docker ubuntu
+RUN echo "ubuntu:ubuntu" | chpasswd
+# Allow the user to run docker commands
+RUN echo "ubuntu ALL=(ALL) NOPASSWD: /usr/bin/docker" > /etc/sudoers.d/ubuntu
+
+USER ubuntu
+WORKDIR /home/ubuntu
+
+# Check out all the LLVM tools. Everything is from the official LLVM git mirrors, my changes
+# are applied later.
+RUN git clone http://llvm.org/git/llvm.git \
+    && cd llvm/tools \
+    && git clone http://llvm.org/git/clang.git \
+    && git clone http://llvm.org/git/lldb.git \
+    && cd ../projects \
+    && git clone http://llvm.org/git/compiler-rt.git \
+    && git clone http://llvm.org/git/libcxx.git \
+    && git clone http://llvm.org/git/libcxxabi.git
+
+# Add my changes to LLDB. These are small fixes for bugs in the GUI that cause segfaults. See
+# https://llvm.org/bugs/show_bug.cgi?id=26842 and https://llvm.org/bugs/show_bug.cgi?id=26875,
+# or have a look at the changes directly at
+# https://github.com/llvm-mirror/lldb/compare/master...mark-grimes:fixBug26842 and
+# https://github.com/llvm-mirror/lldb/compare/master...mark-grimes:fixBug26875. Using a
+# cherry-pick here because a merge requires configuration beforehand (name and email).
+RUN cd llvm/tools/lldb \
+    && git remote add mark-grimes https://github.com/mark-grimes/lldb.git \
+    && git fetch mark-grimes \
+    && git checkout -b masterPlusFixBugs26842_26875 \
+    && git cherry-pick 240e7efc7cd2db82f93fdffb6ea576e5e2b66018 d1d46b129510d5471ac138a86ee36b485bf78dce \
+    && git config --local branch.master.rebase true
+
+#    && git merge mark-grimes/fixBug26842 mark-grimes/fixBug26875 -m "Merge remote-tracking branches 'mark-grimes/fixBug26842' and 'mark-grimes/fixBug26875' into masterPlusFixBugs26842_26875" \
+
+RUN mkdir llvm/build \
+    && cd llvm/build \
+    && cmake -DCMAKE_BUILD_TYPE=RELEASE -DCMAKE_INSTALL_PREFIX=/home/ubuntu/llvm_install .. \
+    && make -j 4
+
+CMD [ "/bin/bash" ]
+
