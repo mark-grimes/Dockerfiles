@@ -1,4 +1,4 @@
-FROM ubuntu:14.04
+FROM debian:wheezy
 
 
 # Install git straight from apt
@@ -6,7 +6,7 @@ RUN apt-get update -y \
     && apt-get install -y git
 
 # Install aws and all its dependencies
-RUN apt-get install -y git python-pip libyaml-dev python2.7-dev \
+RUN apt-get install -y git python-pip \
     && pip install awscli
 
 # Download and install Hugo
