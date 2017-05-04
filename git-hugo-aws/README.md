@@ -1,4 +1,4 @@
-#git-hugo-aws
+# git-hugo-aws
 
 Docker image with git, hugo Static Site Generator and the AWS CLI tools. Used for automated builds of websites and pushing the result to an AWS S3 bucket.
 

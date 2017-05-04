@@ -1,4 +1,4 @@
-#dotnet-zip-s3cmd
+# dotnet-zip-s3cmd
 
 Docker image based on microsoft/dotnet but with added zip and s3cmd commands. I use it for creating AWS Lambda functions in C# and uploading them to S3 ready for CloudFormation to use.
 
