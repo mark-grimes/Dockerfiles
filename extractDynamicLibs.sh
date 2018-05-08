@@ -22,11 +22,31 @@
 #
 # Requires ldd, readlink, mkdir, cp, cd, ln, awk, basename, dirname.
 #
+# For ldd, you can specify a different executable/script from the system default by
+# setting the "LDD" environment variable. You can also copy libraries from a different
+# root directory by setting the "SYSROOT" environment variable. This is useful if you
+# want to use this script in a cross-compilation toolchain, e.g. with the ldd replacement
+# https://gist.github.com/jerome-pouiller/c403786c1394f53f44a3b61214489e6f
+# I was able to create docker images for other platforms with e.g.
+# LDD="xldd --root /opt/poky/2.4.2/sysroots/cortexa8hf-neon-poky-linux-gnueabi" SYSROOT="/opt/poky/2.4.2/sysroots/cortexa8hf-neon-poky-linux-gnueabi/" extractDynamicLibs.sh MyExecutable
+#
 # @author Mark Grimes
 # @date 18/Feb/2016
 # @copyright MIT Licence (https://opensource.org/licenses/MIT)
 #
 
+LDD="${LDD:-ldd}"
+SYSROOT="${SYSROOT:-}"
+#"/opt/poky/2.4.2/sysroots/cortexa8hf-neon-poky-linux-gnueabi/"
+
+# Make sure SYSROOT has a slash at the end
+if [ -n "$SYSROOT" ]; then
+	case "$SYSROOT" in
+		*/);; # If slash at the end do nothing
+		*) # else add a slash to the end
+			SYSROOT="${SYSROOT}/";;
+	esac
+fi
 
 if [ $# -gt 2 ]; then
 	echo "Warning: all but the first two parameters were ignored" >&2
@@ -54,7 +74,7 @@ if [ -e "$OUTPUT_DIRECTORY" ]; then
 	exit
 fi
 
-REQUIRED_LIBS=`ldd "$EXECUTABLE_NAME" 2>&1`
+REQUIRED_LIBS=`${LDD} "$EXECUTABLE_NAME" 2>&1`
 if [ $? -ne 0 ]; then
 	echo "ldd encountered the error :" >&2
 	echo "    "$REQUIRED_LIBS  >&2 # Used "2>&1" so any error message will be in the variable
@@ -87,7 +107,7 @@ for ITEM in $REQUIRED_LIBS; do
 		if [ ! -d "$FULL_OUTPUT_DIRECTORY" ]; then
 			mkdir -p "$FULL_OUTPUT_DIRECTORY"
 		fi
-		cp "$ACTUAL" "$FULL_OUTPUT_DIRECTORY"
+		cp "${SYSROOT}$ACTUAL" "$FULL_OUTPUT_DIRECTORY"
 		if [ "$ORIGINAL" != "$ACTUAL_BASENAME" ]; then
 			cd "$FULL_OUTPUT_DIRECTORY"
 			ln -s "$ACTUAL_BASENAME" "$ORIGINAL"
@@ -101,6 +121,6 @@ for ITEM in $REQUIRED_LIBS; do
 		if [ ! -d "$FULL_OUTPUT_DIRECTORY" ]; then
 			mkdir -p "$FULL_OUTPUT_DIRECTORY"
 		fi
-		cp "$ORIGINAL" "$FULL_OUTPUT_DIRECTORY"
+		cp "${SYSROOT}$ORIGINAL" "$FULL_OUTPUT_DIRECTORY"
 	fi
 done
