@@ -1,5 +1,10 @@
 #! /bin/bash
 #
+# N.B. The canonical location of this file is at
+# https://github.com/mark-grimes/Dockerfiles/blob/master/extractDynamicLibs.sh
+# but it has been included in several projects. Check that location for the most
+# recent version.
+#
 # Extracts all the dynamic libraries required by an executable to another directory.
 # The intention is that you can then add just that directory and the executable to
 # a docker image to get very small images.
@@ -32,7 +37,7 @@
 #
 # @author Mark Grimes
 # @date 18/Feb/2016
-# @copyright MIT Licence (https://opensource.org/licenses/MIT)
+# @copyright Copyright Mark Grimes 2018, released under the MIT Licence (https://opensource.org/licenses/MIT)
 #
 
 LDD="${LDD:-ldd}"
