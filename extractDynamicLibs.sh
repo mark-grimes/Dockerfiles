@@ -37,7 +37,6 @@
 
 LDD="${LDD:-ldd}"
 SYSROOT="${SYSROOT:-}"
-#"/opt/poky/2.4.2/sysroots/cortexa8hf-neon-poky-linux-gnueabi/"
 
 # Make sure SYSROOT has a slash at the end
 if [ -n "$SYSROOT" ]; then
