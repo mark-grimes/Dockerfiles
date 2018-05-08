@@ -51,10 +51,10 @@ fi
 if [ $# -gt 2 ]; then
 	echo "Warning: all but the first two parameters were ignored" >&2
 	EXECUTABLE_NAME=$1
-	OUTPUT_DIRECTORY=$2	
+	OUTPUT_DIRECTORY=$2
 elif [ $# -gt 1 ]; then
 	EXECUTABLE_NAME=$1
-	OUTPUT_DIRECTORY=$2	
+	OUTPUT_DIRECTORY=$2
 elif [ $# -gt 0 ]; then
 	EXECUTABLE_NAME=$1
 	OUTPUT_DIRECTORY="libraries"
@@ -102,8 +102,7 @@ for ITEM in $REQUIRED_LIBS; do
 		ACTUAL_BASENAME=`basename "$ACTUAL"`
 		ACTUAL_DIRNAME=`dirname "$ACTUAL"`
 		FULL_OUTPUT_DIRECTORY="$OUTPUT_DIRECTORY/$ACTUAL_DIRNAME"
-		#FULL_OUTPUT_DIRECTORY="$OUTPUT_DIRECTORY"
-		
+
 		if [ ! -d "$FULL_OUTPUT_DIRECTORY" ]; then
 			mkdir -p "$FULL_OUTPUT_DIRECTORY"
 		fi
