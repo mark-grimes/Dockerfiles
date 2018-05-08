@@ -52,20 +52,39 @@ if [ -n "$SYSROOT" ]; then
 	esac
 fi
 
-if [ $# -gt 2 ]; then
-	echo "Warning: all but the first two parameters were ignored" >&2
-	EXECUTABLE_NAME=$1
-	OUTPUT_DIRECTORY=$2
-elif [ $# -gt 1 ]; then
-	EXECUTABLE_NAME=$1
-	OUTPUT_DIRECTORY=$2
-elif [ $# -gt 0 ]; then
-	EXECUTABLE_NAME=$1
+# Evaluate the command line arguments
+unset EXECUTABLE_NAME
+while [ $# -ne 0 ]; do
+	case "${1}" in
+		--ldd)
+			LDD=${2}
+			shift
+			;;
+		--output)
+			OUTPUT_DIRECTORY="${2}"
+			shift
+			;;
+		--sysroot)
+			SYSROOT="${2}"
+			shift
+			;;
+		-*)
+			echo "Unrecognised option \"${1}\"" >&2
+			exit 1
+			;;
+		*)
+			if [ -n "${EXECUTABLE_NAME}" ]; then
+				echo "Executable has already been set, so ignoring argument \"${1}\"" >&2
+			else
+				EXECUTABLE_NAME=${1}
+			fi
+			;;
+	esac
+	shift
+done
+if [ -z "${OUTPUT_DIRECTORY}" ]; then
 	OUTPUT_DIRECTORY="libraries"
-	echo "Output location not specified so trying \"$OUTPUT_DIRECTORY\""
-else
-	echo "No executable was specified"
-	exit
+	echo "Output location not specified so trying \"$OUTPUT_DIRECTORY\"" >&2
 fi
 
 if [ ! -f $EXECUTABLE_NAME ]; then
