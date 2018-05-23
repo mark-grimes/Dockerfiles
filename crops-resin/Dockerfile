@@ -1,7 +1,10 @@
 FROM crops/poky
 USER root
 
-RUN apt-get install -y npm jq iptables curl
+RUN apt-get update \
+    && apt-get install -y npm jq iptables curl \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN curl https://get.docker.com | sh
 
