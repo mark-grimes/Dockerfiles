@@ -8,12 +8,11 @@ RUN apt-get update \
 
 RUN curl https://get.docker.com | sh
 
-# Resin requires docker to build. Use docker-in-docker as described in https://hub.docker.com/_/docker/
-# e.g.
-#   docker run -d --privileged --name docker-in-docker docker:stable-dind --storage-driver overlay2
-# Then make sure you use "--link docker-in-docker:docker" when starting this container
-ENV DOCKER_HOST=docker
-# Make sure the variable is propagated to the build system (see https://www.yoctoproject.org/docs/1.6/bitbake-user-manual/bitbake-user-manual.html#passing-information-into-the-build-task-environment)
-ENV BB_ENV_EXTRAWHITE=DOCKER_HOST
+# Resin requires docker to build. This *must* be a daemon started in the container since the build
+# bind mounts directories inside the container into the new container. After the container has
+# started use:
+#       docker exec -u root <container> dockerd -s vfs -G pokyuser
+# The "-G pokyuser" is so that the normal user has permission, the "-s vfs" is a storage driver
+# that is slow but works on all filesystems.
 
 USER usersetup
