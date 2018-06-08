@@ -1,7 +1,7 @@
 FROM alpine
 
-# Without ttf-freefont there will be no text
-RUN apk add --no-cache wireshark ttf-freefont
+# Without ttf-freefont there will be no text, without xkeyboard-config keyboard input will not work
+RUN apk add --no-cache wireshark ttf-freefont xkeyboard-config
 
 # Get some dbus error if there is not a machine-id file. Could also install
 # do "RUN apk add --no-cache dbus && dbus-uuidgen > /var/lib/dbus/machine-id"
