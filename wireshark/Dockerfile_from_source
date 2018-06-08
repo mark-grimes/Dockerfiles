@@ -1,0 +1,19 @@
+FROM alpine
+
+RUN apk add --no-cache libgcrypt glib qt-x11 libpcap ttf-freefont
+
+RUN apk add --no-cache alpine-sdk xz python perl libgcrypt-dev glib-dev qt-dev libpcap-dev \
+    && curl -LO https://1.eu.dl.wireshark.org/src/wireshark-2.6.1.tar.xz \
+    && tar -xJf wireshark-2.6.1.tar.xz \
+    && cd wireshark-2.6.1 \
+    && ./configure \
+    && make \
+    && make install \
+    && cd .. \
+    && rm -rf wireshark-2.6.1 wireshark-2.6.1.tar.xz \
+    && apk del alpine-sdk xz python perl libgcrypt-dev glib-dev qt-dev libpcap-dev
+
+ENV DISPLAY="host.docker.internal:0"
+ENTRYPOINT ["wireshark"]
+
+# Then you can run with e.g. "docker run --rm -d --net=host --privileged wireshark"
