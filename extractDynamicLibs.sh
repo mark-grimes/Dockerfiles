@@ -122,27 +122,27 @@ for ITEM in $REQUIRED_LIBS; do
 	ACTUAL=`echo $ITEM | awk '{if(NF==4) print "readlink -f "$3}' | sh`
 
 	if [ -n "$ACTUAL" ]; then
-		ACTUAL_BASENAME=`basename "$ACTUAL"`
-		ACTUAL_DIRNAME=`dirname "$ACTUAL"`
-		FULL_OUTPUT_DIRECTORY="$OUTPUT_DIRECTORY/$ACTUAL_DIRNAME"
+		# original is a symlink to the actual file, so first need to copy the file being linked to
+		SOURCE="${SYSROOT}$ACTUAL"
+		FULL_OUTPUT_DIRECTORY="$OUTPUT_DIRECTORY/`dirname "$ACTUAL"`"
+	else
+		# No symlinks involved, just need to copy the file
+		SOURCE="${SYSROOT}$ORIGINAL"
+		FULL_OUTPUT_DIRECTORY="$OUTPUT_DIRECTORY/`dirname "$ORIGINAL"`"
+	fi
 
-		if [ ! -d "$FULL_OUTPUT_DIRECTORY" ]; then
-			mkdir -p "$FULL_OUTPUT_DIRECTORY"
-		fi
-		cp "${SYSROOT}$ACTUAL" "$FULL_OUTPUT_DIRECTORY"
+	if [ ! -d "$FULL_OUTPUT_DIRECTORY" ]; then
+		mkdir -p "$FULL_OUTPUT_DIRECTORY"
+	fi
+	cp "$SOURCE" "$FULL_OUTPUT_DIRECTORY"
+
+	# Now need to create the symlink (if required)
+	if [ -n "$ACTUAL" ]; then
+		ACTUAL_BASENAME=`basename "$ACTUAL"`
 		if [ "$ORIGINAL" != "$ACTUAL_BASENAME" ]; then
 			cd "$FULL_OUTPUT_DIRECTORY"
 			ln -s "$ACTUAL_BASENAME" "$ORIGINAL"
 			cd "$START_DIR"
 		fi
-	elif [ -f "$ORIGINAL" ]; then
-		ORIGINAL_DIRNAME=`dirname "$ORIGINAL"`
-		FULL_OUTPUT_DIRECTORY="$OUTPUT_DIRECTORY/$ORIGINAL_DIRNAME"
-		#FULL_OUTPUT_DIRECTORY="$OUTPUT_DIRECTORY"
-
-		if [ ! -d "$FULL_OUTPUT_DIRECTORY" ]; then
-			mkdir -p "$FULL_OUTPUT_DIRECTORY"
-		fi
-		cp "${SYSROOT}$ORIGINAL" "$FULL_OUTPUT_DIRECTORY"
 	fi
 done
