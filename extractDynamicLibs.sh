@@ -92,11 +92,6 @@ if [ ! -f $EXECUTABLE_NAME ]; then
 	exit
 fi
 
-if [ -e "$OUTPUT_DIRECTORY" ]; then
-	echo "The requested output directory \"$OUTPUT_DIRECTORY\" already exists, delete it before continuing" >&2
-	exit
-fi
-
 REQUIRED_LIBS=`${LDD} "$EXECUTABLE_NAME" 2>&1`
 if [ $? -ne 0 ]; then
 	echo "ldd encountered the error :" >&2
@@ -105,10 +100,17 @@ if [ $? -ne 0 ]; then
 	exit
 fi
 
-mkdir -p "$OUTPUT_DIRECTORY"
-if [ $? -ne 0 ]; then
-	echo "Unable to create the directory \"$OUTPUT_DIRECTORY\" for the output" >&2
-	exit
+if [ -e "$OUTPUT_DIRECTORY" ]; then
+	if [ ! -d "$OUTPUT_DIRECTORY" ]; then
+		echo "The requested output directory \"$OUTPUT_DIRECTORY\" already exists, but is not a directory" >&2
+		exit
+	fi
+else
+	mkdir -p "$OUTPUT_DIRECTORY"
+	if [ $? -ne 0 ]; then
+		echo "Unable to create the directory \"$OUTPUT_DIRECTORY\" for the output" >&2
+		exit
+	fi
 fi
 
 
@@ -116,6 +118,7 @@ fi
 IFS=$'\n'
 
 START_DIR=$PWD
+VERBOSITY=1
 
 for ITEM in $REQUIRED_LIBS; do
 	ORIGINAL=`echo $ITEM | awk '{print $1}'`
@@ -125,23 +128,37 @@ for ITEM in $REQUIRED_LIBS; do
 		# original is a symlink to the actual file, so first need to copy the file being linked to
 		SOURCE="${SYSROOT}$ACTUAL"
 		FULL_OUTPUT_DIRECTORY="$OUTPUT_DIRECTORY/`dirname "$ACTUAL"`"
+		DESTINATION="$FULL_OUTPUT_DIRECTORY/`basename "$ACTUAL"`"
 	else
 		# No symlinks involved, just need to copy the file
 		SOURCE="${SYSROOT}$ORIGINAL"
 		FULL_OUTPUT_DIRECTORY="$OUTPUT_DIRECTORY/`dirname "$ORIGINAL"`"
+		DESTINATION="$FULL_OUTPUT_DIRECTORY/`basename "$ORIGINAL"`"
 	fi
 
 	if [ ! -d "$FULL_OUTPUT_DIRECTORY" ]; then
 		mkdir -p "$FULL_OUTPUT_DIRECTORY"
 	fi
-	cp "$SOURCE" "$FULL_OUTPUT_DIRECTORY"
+	if [ -e "$DESTINATION" ]; then
+		if [ $VERBOSITY -gt 1 ]; then echo "$DESTINATION already exists, skipping file copy"; fi
+	else
+		if [ ! -e "$SOURCE" ]; then
+			if [ $VERBOSITY -gt 0 ]; then echo "Unable to copy \"$SOURCE\" to \"$FULL_OUTPUT_DIRECTORY\" because the source does not exist" >&2; fi
+		else
+			cp "$SOURCE" "$FULL_OUTPUT_DIRECTORY"
+		fi
+	fi
 
 	# Now need to create the symlink (if required)
 	if [ -n "$ACTUAL" ]; then
 		ACTUAL_BASENAME=`basename "$ACTUAL"`
 		if [ "$ORIGINAL" != "$ACTUAL_BASENAME" ]; then
 			cd "$FULL_OUTPUT_DIRECTORY"
-			ln -s "$ACTUAL_BASENAME" "$ORIGINAL"
+			if [ -e "$ORIGINAL" ]; then
+				if [ $VERBOSITY -gt 1 ]; then echo "$ORIGINAL already exists, skipping symlink"; fi
+			else
+				ln -s "$ACTUAL_BASENAME" "$ORIGINAL"
+			fi
 			cd "$START_DIR"
 		fi
 	fi
